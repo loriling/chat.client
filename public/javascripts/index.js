@@ -2,9 +2,48 @@ const wsAddr = 'ws://127.0.0.1:8888';
 
 class Chat {
     constructor(wsAddr) {
-        this.ws = new WebSocket(wsAddr);
+        this.login('test1', '').then(data => {
+            if (data.result === 1) {
+                this.token = data.token;
+                this.clientId = data.clientId;
+                this.afterLogin();
+            } else {
+                console.error('Login failed', data);
+            }
+        });
+    }
+
+    /**
+     * 登录操作
+     * @param loginName
+     * @param password
+     * @return {Promise<any>}
+     */
+    login(loginName, password) {
+        return new Promise((resolve, reject) => {
+            $.ajax({
+                method: 'POST',
+                url: '/chat/login',
+                data: {
+                    loginName,
+                    password
+                }
+            }).done(resp => {
+                resolve(resp)
+            }).fail(err => {
+                reject(err);
+            })
+        })
+    }
+
+    /**
+     * 登录成功后，去连接websocket
+     */
+    afterLogin() {
+        this.ws = new WebSocket(wsAddr + '/' + this.clientId);
         this.ws.onopen = () => {
-            this.login('test1', '');
+            // websocket连上后就登录
+            this.sendRequest(this.token, 2);
         };
 
         this.ws.onmessage = msg => {
@@ -15,27 +54,31 @@ class Chat {
     handleMessage(msg) {
         console.log(msg.data);
         let message = JSON.parse(msg.data), data = message.data;
-        if (message.type === 1) {
-            if (data.result === 1) {
-                this.token = data.token;
-                this.clientId = data.clientId;
-                this.sendRequest(this.token, 1);
-            } else {
-                console.log('login failed');
-            }
-        } else if (message.type === 1000) {
+        if (message.type === 1000) {
             if (data.result === 1) {//{"type":1000,"data":{"sessionId":96,"agentId":"BOT003","robotType":3,"agentName":"XIAODUO","queueLength":0,"result":1,"message":""}}
                 if (data.hasOwnProperty('sessionId')) {
                     this.sessionId = data.sessionId;
                     this.agent = {
                         id: data.agentId,
                         name: data.agentName
-                    }
+                    };
                     // start chatting
+                    this.sendMessage(this.token, this.sessionId, '你好');
                 } else {
                     // waiting in queue
                 }
             }
+        } else if (message.type === 'create') {
+            if (data.result === 1) {
+                this.sessionId = data.sessionId;
+                this.agent = {
+                    id: data.agentId,
+                    name: data.agentName
+                };
+                this.sendMessage(this.token, this.sessionId, '排队真快~');
+            }
+        } else if (message.type === 'msg') {
+            this.sendMessage(this.token, this.sessionId, data.content);
         }
     }
 
@@ -44,15 +87,6 @@ class Chat {
             data = JSON.stringify(data);
         }
         this.ws.send(data);
-    }
-
-    login(loginName, password) {
-        this.send({
-            type: 1,//登录请求
-            loginName,
-            password,
-            ip: "192.168.0.1"//客户端ip（可选）
-        });
     }
 
     sendRequest(token, queue) {
