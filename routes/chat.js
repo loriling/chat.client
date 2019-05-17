@@ -14,6 +14,10 @@ router.post('/login', function(req, res, next) {
         ip //客户端ip（可选）
     }).then(resp => {
         res.send(resp);
+    }).catch(err => {
+        res.send(JSON.stringify({
+            result: -1
+        }));
     });
 });
 

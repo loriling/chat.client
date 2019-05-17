@@ -3,5 +3,9 @@ block scripts
   script(type="text/javascript", src="/javascripts/lib/jquery-3.2.1.min.js")
   script(type="text/javascript", src="/javascripts/index.js")
 block content
-  h1= title
-  p Welcome to #{title}
+  div(class="chat")
+    h1= title
+    div(class="message-container")
+    div(class="message-control")
+      <textarea name="message" class="message-input"></textarea>
+      <input type="button" value="send" class="send-btn">
